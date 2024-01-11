@@ -1,0 +1,759 @@
+VLSI LABORATORY (18ECL77)
+PART-B: DIGITAL DESIGN
+PROGRAM-1(A): VERILOG CODE FOR 4 BIT UP/DOWN ASYNCHRONOUS RESET COUNTER
+VERILOG CODE:
+module upordown_counter(clk, reset, a, count);
+input clk,reset,a;
+output [3 : 0] count;
+reg [3 : 0] count;
+always @(posedge(clk) or posedge(reset))
+begin
+if(reset == 1)
+count <= 0;
+else
+if(a == 1)
+if(count == 15)
+count <= 0;
+else
+count <= count + 1;
+else
+if(count == 0)
+count <= 15;
+else
+count <= count - 1;
+end
+endmodule
+
+TESTBENCH:
+module tb_counter;
+reg clk;
+reg reset;
+reg a;
+
+wire [3:0] count;
+upordown_counter uut (.clk(clk),.reset(reset),.a(a),.count(count));
+module tb_counter;
+initial clk = 0;
+always #5 clk = ~clk;
+initial begin
+reset = 0;
+a = 0;
+#300;
+a = 1;
+#300;
+reset = 1;
+a = 0;
+#100;
+reset = 0;
+end
+endmodule
+
+WAVEFORM:
+
+
+
+PROGRAM-1(B): VERILOG CODE FOR 32 BIT UP/DOWN ASYNCHRONOUS RESET COUNTER
+VERILOG CODE:
+module up_down_counter (input wire clk,input wire rst,input wire a,output reg [31:0] count);
+always @(posedge clk or posedge rst) begin
+if (rst)
+begin
+count <= 0;
+end
+else
+begin
+if (a) begin
+count <= count + 1;
+end
+else
+begin
+count <= count - 1;
+end
+end
+end
+endmodule
+
+TESTBENCH:
+module testbench;
+reg clk, rst, a;
+wire [31:0] count;
+up_down_counter uut (.clk(clk),.rst(rst),.a(a),.count(count));
+always begin
+#5 clk = ~clk;
+end
+initial begin
+clk = 0;
+rst = 1;
+a = 1;
+#10 rst = 0;
+#10 a = 1;
+#200;
+a = 0;
+#200;
+end
+endmodule
+
+WAVEFORM:
+
+
+
+
+
+
+
+
+
+
+PROGRAM-2: VERILOG CODE FOR 4 BIT ADDER
+VERILOG CODE:
+module adder_four_bit(output [3:0]sum, output cout , input [3:0]a,b);
+wire c1,c2,c3,c4;
+full_3 ad0( .a(a[0]), .b(b[0]),.cin(0), .s(sum[0]), .cout(c1));
+full_3 ad1( .a(a[1]), .b(b[1]),.cin(c1), .s(sum[1]), .cout(c2));
+full_3 ad2( .a(a[2]), .b(b[2]),.cin(c2), .s(sum[2]), .cout(c3));
+full_3 ad3( .a(a[3]), .b(b[3]),.cin(c3), .s(sum[3]), .cout(c4));
+assign cout= c4;
+endmodule
+module full_3(a,b,cin,s,cout);
+input a,b,cin;
+output s, cout;
+assign s=a^b^cin;
+assign cout = (a&b) | (b&cin) | (cin&a);
+endmodule
+
+TESTBENCH:
+module adder_4bit_test;
+reg [3:0] a;
+reg [3:0] b;
+wire [3:0] s;
+wire cout;
+adder_four_bit testadd(.sum(s),.cout(cout),.a(a),.b(b));
+initial
+begin
+a=4'b0000;
+b=4'b0001;
+#30
+a=4'b0001;
+b=4'b0001;
+
+#30
+a=4'b0010;
+b=4'b0001;
+#30;
+a=4'b0100;
+b=4'b0101;
+#30;
+a=4'b1100;
+b=4'b1101;
+#30;
+$finish;
+end
+endmodule
+
+WAVEFORM:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PROGRAM-3(A): VERILOG CODE FOR UART (TRANSMITTER)
+VERILOG CODE:
+module UART_TX
+#(parameter CLKS_PER_BIT = 217)
+(
+input   i_Rst_L,
+input   i_Clock,
+input       i_TX_DV,
+input [7:0] i_TX_Byte,
+output reg  o_TX_Active,
+output reg  o_TX_Serial,
+output reg  o_TX_Done
+);
+localparam IDLE  = 2'b00;
+localparam TX_START_BIT = 2'b01;
+localparam TX_DATA_BITS = 2'b10;
+localparam TX_STOP_BIT  = 2'b11;
+reg [2:0] r_SM_Main;
+reg [$clog2(CLKS_PER_BIT):0] r_Clock_Count;
+reg [2:0] r_Bit_Index;
+reg [7:0] r_TX_Data;
+always @(posedge i_Clock or negedge i_Rst_L)
+begin
+if (~i_Rst_L)
+begin
+r_SM_Main <= 3'b000;
+end
+else
+begin
+o_TX_Done <= 1'b0;
+case (r_SM_Main)
+IDLE :
+begin
+o_TX_Serial   <= 1'b1;         // Drive Line High for Idle
+r_Clock_Count <= 0;
+r_Bit_Index   <= 0;
+if (i_TX_DV == 1'b1)
+begin
+o_TX_Active <= 1'b1;
+r_TX_Data   <= i_TX_Byte;
+r_SM_Main   <= TX_START_BIT;
+end
+else
+r_SM_Main <= IDLE;
+end
+TX_START_BIT :
+begin
+o_TX_Serial <= 1'b0;
+if (r_Clock_Count < CLKS_PER_BIT-1)
+begin
+r_Clock_Count <= r_Clock_Count + 1;
+r_SM_Main     <= TX_START_BIT;
+end
+else
+begin
+r_Clock_Count <= 0;
+r_SM_Main     <= TX_DATA_BITS;
+end
+end
+TX_DATA_BITS :
+begin
+o_TX_Serial <= r_TX_Data[r_Bit_Index];
+if (r_Clock_Count < CLKS_PER_BIT-1)
+begin
+r_Clock_Count <= r_Clock_Count + 1;
+r_SM_Main     <= TX_DATA_BITS;
+end
+else
+begin
+r_Clock_Count <= 0;
+if (r_Bit_Index < 7)
+begin
+r_Bit_Index <= r_Bit_Index + 1;
+r_SM_Main   <= TX_DATA_BITS;
+end
+else
+begin
+r_Bit_Index <= 0;
+r_SM_Main   <= TX_STOP_BIT;
+end
+end
+end
+TX_STOP_BIT :
+begin
+o_TX_Serial <= 1'b1;
+if (r_Clock_Count < CLKS_PER_BIT-1)
+begin
+r_Clock_Count <= r_Clock_Count + 1;
+r_SM_Main     <= TX_STOP_BIT;
+end
+else
+begin
+o_TX_Done     <= 1'b1;
+r_Clock_Count <= 0;
+r_SM_Main     <= IDLE;
+o_TX_Active   <= 1'b0;
+end
+end
+default :
+r_SM_Main <= IDLE;
+endcase
+end
+end
+endmodule
+
+TESTBENCH:
+module UART_TB ();
+parameter c_CLOCK_PERIOD_NS = 40;
+parameter c_CLKS_PER_BIT    = 217;
+parameter c_BIT_PERIOD      = 8600;
+reg r_Clock = 0;
+reg r_TX_DV = 0;
+wire w_TX_Active, w_UART_Line;
+wire w_TX_Serial;
+reg [7:0] r_TX_Byte = 0;
+wire [7:0] w_TX_Byte;
+UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_Inst
+(.i_Clock(r_Clock),
+.i_TX_Serial(w_UART_Line),
+.o_TX_DV(w_TX_DV),
+.o_TX_Byte(w_TX_Byte)
+);
+UART_TX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_TX_New
+(.i_Clock(r_Clock),
+.i_TX_DV(r_TX_DV),
+.i_TX_Byte(r_TX_Byte),
+.o_TX_Active(w_TX_Active),
+.o_TX_Serial(w_TX_Serial),
+.o_TX_Done()
+);
+assign w_UART_Line = w_TX_Active ? w_TX_Serial : 1'b1;
+always
+#(c_CLOCK_PERIOD_NS/2) r_Clock <= !r_Clock;
+initial
+begin
+@(posedge r_Clock);
+@(posedge r_Clock);
+r_TX_DV   <= 1'b1;
+r_TX_Byte <= 8'h3F;
+@(posedge r_Clock);
+r_TX_DV <= 1'b0;
+@(posedge w_TX_DV);
+if (w_TX_Byte == 8'h3F)
+$display("Test Passed - Correct Byte Received");
+else
+$display("Test Failed - Incorrect Byte Received");
+$finish();
+end
+initial
+begin
+$dumpfile("dump.vcd");
+$dumpvars(0);
+end
+endmodule
+
+
+
+
+
+
+WAVEFORM:
+
+
+
+
+
+
+
+
+
+PROGRAM-3(B): VERILOG CODE FOR UART (RECEIVER)
+VERILOG CODE:
+module UART_RX
+#(parameter CLKS_PER_BIT = 217)
+(
+input        i_Clock,
+input        i_RX_Serial,
+output       o_RX_DV,
+output [7:0] o_RX_Byte
+);
+parameter IDLE         = 3'b000;
+parameter RX_START_BIT = 3'b001;
+parameter RX_DATA_BITS = 3'b010;
+parameter RX_STOP_BIT  = 3'b011;
+parameter CLEANUP      = 3'b100;
+reg [7:0]     r_Clock_Count = 0;
+reg [2:0]     r_Bit_Index   = 0;
+reg [7:0]     r_RX_Byte     = 0;
+reg           r_RX_DV       = 0;
+reg [2:0]     r_SM_Main     = 0;
+always @(posedge i_Clock)
+begin
+case (r_SM_Main)
+IDLE :
+begin
+r_RX_DV       <= 1'b0;
+r_Clock_Count <= 0;
+r_Bit_Index   <= 0;
+if (i_RX_Serial == 1'b0)
+r_SM_Main <= RX_START_BIT;
+else
+r_SM_Main <= IDLE;
+end
+RX_START_BIT :
+begin
+if (r_Clock_Count == (CLKS_PER_BIT-1)/2)
+begin
+if (i_RX_Serial == 1'b0)
+begin
+r_Clock_Count <= 0;
+r_SM_Main     <= RX_DATA_BITS;
+end
+else
+r_SM_Main <= IDLE;
+end
+else
+begin
+r_Clock_Count <= r_Clock_Count + 1;
+r_SM_Main     <= RX_START_BIT;
+end
+end
+RX_DATA_BITS :
+begin
+if (r_Clock_Count < CLKS_PER_BIT-1)
+begin
+r_Clock_Count <= r_Clock_Count + 1;
+r_SM_Main     <= RX_DATA_BITS;
+end
+else
+begin
+r_Clock_Count          <= 0;
+r_RX_Byte[r_Bit_Index] <= i_RX_Serial;
+
+if (r_Bit_Index < 7)
+begin
+r_Bit_Index <= r_Bit_Index + 1;
+r_SM_Main   <= RX_DATA_BITS;
+end
+else
+begin
+r_Bit_Index <= 0;
+r_SM_Main   <= RX_STOP_BIT;
+end
+end
+end
+RX_STOP_BIT :
+begin
+if (r_Clock_Count < CLKS_PER_BIT-1)
+begin
+r_Clock_Count <= r_Clock_Count + 1;
+r_SM_Main     <= RX_STOP_BIT;
+end
+else
+begin
+r_RX_DV       <= 1'b1;
+r_Clock_Count <= 0;
+r_SM_Main     <= CLEANUP;
+end
+end
+CLEANUP :
+begin
+r_SM_Main <= IDLE;
+r_RX_DV   <= 1'b0;
+end
+default :
+r_SM_Main <= IDLE;
+endcase
+end
+assign o_RX_DV   = r_RX_DV;
+assign o_RX_Byte = r_RX_Byte;
+endmodule
+
+TESTBENCH:
+module UART_RX_TB();
+parameter c_CLOCK_PERIOD_NS = 40;
+parameter c_CLKS_PER_BIT    = 217;
+parameter c_BIT_PERIOD      = 8600;
+reg r_Clock = 0;
+reg r_RX_Serial = 1;
+wire [7:0] w_RX_Byte;
+task UART_WRITE_BYTE;
+input [7:0] i_Data;
+integer     ii;
+begin
+r_RX_Serial <= 1'b0;
+#(c_BIT_PERIOD);
+#1000;
+for (ii=0; ii<8; ii=ii+1)
+begin
+r_RX_Serial <= i_Data[ii];
+#(c_BIT_PERIOD);
+end
+r_RX_Serial <= 1'b1;
+#(c_BIT_PERIOD);
+end
+endtask
+UART_RX #(.CLKS_PER_BIT(c_CLKS_PER_BIT)) UART_RX_INST
+(.i_Clock(r_Clock),
+.i_RX_Serial(r_RX_Serial),
+.o_RX_DV(),
+.o_RX_Byte(w_RX_Byte)
+);
+always
+#(c_CLOCK_PERIOD_NS/2) r_Clock <= !r_Clock;
+initial
+begin
+@(posedge r_Clock);
+UART_WRITE_BYTE(8'h37);
+@(posedge r_Clock);
+if (w_RX_Byte == 8'h37)
+$display("Test Passed - Correct Byte Received");
+else
+$display("Test Failed - Incorrect Byte Received");
+$finish();
+end
+initial
+begin
+$dumpfile("dump.vcd");
+$dumpvars(0);
+end
+endmodule
+
+WAVEFORM:
+
+
+
+
+
+
+
+
+
+
+
+PROGRAM-4: VERILOG CODE FOR 32 BIT ALU
+VERILOG CODE:
+module alu_32bit_case(y,a,b,f);
+input [31:0]a;
+input [31:0]b;
+input [2:0]f;
+output reg [31:0]y;
+always@(*)
+begin
+case(f)
+3'b000:y=a&b;
+3'b001:y=a|b;
+3'b010:y=~(a&b);
+3'b011:y=~(a|b);
+3'b010:y=a+b;
+3'b011:y=a-b;
+3'b100:y=a*b;
+default:y=32'bx;
+endcase
+end
+endmodule
+
+TESTBENCH:
+module alu_32bit_tb_case;
+reg [31:0]a;
+reg [31:0]b;
+reg [2:0]f;
+wire [31:0]y;
+alu_32bit_case test2(.y(y),.a(a),.b(b),.f(f));
+initial
+begin
+a=32'h00000000;
+b=32'hFFFFFFFF;
+#10 f=3'b000;
+#10 f=3'b001;
+#10 f=3'b010;
+#10 f=3'b100;
+end
+initial
+#50 $finish;
+Endmodule
+
+WAVEFORM:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PROGRAM-5(A): VERILOG CODE FOR SR FLIPFLOP
+VERILOG CODE:
+module SR_ff(s,r,clk,reset,q,q_bar);
+input s,r,clk,reset;
+output q,q_bar;
+wire s,r,clk;
+reg q,q_bar;
+always @(posedge clk) begin
+if (reset) begin
+q=1'b0;
+q_bar=1'b1;
+end else begin
+case({s,r})
+{1'b0,1'b0}: begin q=q;q_bar=q_bar; end
+{1'b0,1'b1}: begin q=1'b0;q_bar=1'b1; end
+{1'b1,1'b0}: begin q=1'b1;q_bar=1'b0; end
+{1'b1,1'b1}: begin q=1'bx; q_bar=1'bx; end
+endcase
+end
+end
+endmodule
+
+TESTBENCH:
+module SR_ff_tb;
+reg clk;
+reg reset;
+reg s,r;
+wire q;
+wire qb;
+SR_ff srflipflop( .clk(clk), .reset(reset), .s(s), .r(r), .q(q), .q_bar(qb) );
+initial begin
+$monitor(clk,s,r,q,qb,reset);
+s = 1'b0;
+r = 1'b0;
+reset = 1;
+clk=1;
+#10
+reset=0;
+s=1'b1;
+r=1'b0;
+#100
+reset=0;
+s=1'b0;
+r=1'b1;
+#100
+reset=0;
+s=1'b1;
+r=1'b1;
+#100
+reset=0;
+s=1'b0;
+r=1'b0;
+#100
+reset=1;
+s=1'b1;
+r=1'b0;
+end
+always #25 clk <= ~clk;
+endmodule
+
+
+
+
+
+WAVEFORM:
+
+
+
+
+
+
+
+
+
+PROGRAM-5(B): VERILOG CODE FOR JK FLIPFLOP
+VERILOG CODE:
+module jk_flipflop(j,k,clk,reset,Q,Q_bar);
+input j,k,clk,reset;
+output reg Q,Q_bar;
+always@(posedge clk)
+begin
+if({reset})
+{Q,Q_bar}<={1'b0,1'b1};
+else
+begin
+case({j,k})
+2'b00:{Q,Q_bar}<={Q,Q_bar};
+2'b01:{Q,Q_bar}<={1'b0,1'b1};
+2'b10:{Q,Q_bar}<={1'b1,1'b0};
+2'b11:{Q,Q_bar}<={~Q,Q};
+default:begin end
+endcase
+end
+end
+endmodule
+
+TESTBENCH:
+module jk_ff_test_bench();
+reg clk,rst,j,k;
+wire q_n,q_n_bar;
+jk_flipflop test_design(j,k,clk,rst,q_n,q_n_bar);
+initial begin
+clk=0;
+forever #5 clk=~clk;
+end
+initial
+begin
+rst=1;
+#10;
+rst=0;
+#10;
+j = 1'b0;
+k = 1'b0;
+#10;
+j = 1'b0;
+k = 1'b1;
+#10;
+j = 1'b1;
+k = 1'b0;
+#10;
+j = 1'b1;
+k = 1'b1;
+#10;
+$finish;
+end
+endmodule
+
+WAVEFORM:
+
+
+
+
+
+
+
+
+
+
+PROGRAM-5(B): VERILOG CODE FOR D FLIPFLOP
+VERILOG CODE:
+module d_flip_flop (Q,D,clk,reset);
+input D;
+input clk;
+input reset;
+output reg Q;
+always @(posedge clk or posedge reset)
+begin
+if (reset == 1'b1 )
+Q <= 1'b0;
+else
+Q <= D;
+end
+endmodule
+
+TESTBENCH:
+module tb;
+reg D;
+reg clk;
+reg reset;
+wire Q;
+d_flip_flop d1(Q,D,clk,reset);
+initial
+begin
+clk = 1'b0;
+forever #20 clk = ~clk ;
+end
+initial
+begin
+reset = 1'b1;
+#40;
+reset = 1'b0;
+#40;
+D = 1'b0;
+#40;
+D = 1'b1;
+#40;
+$finish ;
+end
+endmodule
+WAVEFORM:
+
+
+
