@@ -48,4 +48,29 @@ INVERTER:
   -Outputs ->setup->from design
   -simulation->first option
   -click on split
+
+
+
+  NAND:
+ -virtuoso &
+-file ->new library->attach to an existing library-gpdk180->apply ok
+- file new->cellview -> select created library-> give cell name apply,ok
+- press i -> gpdk180-pmos,minimize,wn=1.7u,wp=1.275u
+- press p (vout) (vdd)(vss)(a,b)
+- check and save
+- create ->cellview->from cellview
+- create symbol->checkn save
+- File->new->cellview->select ur library->name the file as nand_test
+- p(select ur library)select created nand
+-      (analaoglib) select vdc----DC VOLTAGE=1.8V
+-       CAP    capacitance=100f F
+-       put grounds
+- press P-> A,B
+- Launch->ADE L
+- Setup->simuli->rise time and fall=1n  ,period 10n,pattern parameter data 11001001    apply,ok
+- Analyse->choose->tran,   stop time 100n,moderate    apply,ok
+
+- outputs->setup->from designs  ->select a,b,vout,apply ok
+- simulation->first option
+- 
                        
